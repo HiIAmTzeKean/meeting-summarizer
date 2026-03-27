@@ -1,0 +1,40 @@
+# Environment
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# uv
+.uv/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Meeting output files
+meeting_*.json
+
+# Audio files
+*.wav
+*.mp3
+*.mp4
+*.m4a
+*.ogg
+*.flac
+
+# OS
+.DS_Store
+Thumbs.db
