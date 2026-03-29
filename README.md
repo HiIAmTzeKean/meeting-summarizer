@@ -59,9 +59,32 @@ cp .env.example .env
 # Edit .env and fill in your API keys
 ```
 
+For Claude authentication, choose **one** of the following:
+
+- **Option A — Direct Anthropic API** (recommended if you have an API key)
+      - Set `ANTHROPIC_API_KEY` from the [Anthropic Console](https://console.anthropic.com)
+
+- **Option B — Claude Max subscription proxy (no API key required)**
+      - Install the proxy CLI:
+
+            ```bash
+            npm install -g opencode-claude-max-proxy
+            ```
+
+      - In `.env`, set:
+
+            ```dotenv
+            # Option B — Claude Max subscription proxy (no API key required)
+            # Run the proxy locally: npm install -g opencode-claude-max-proxy && meridian
+            ANTHROPIC_BASE_URL=http://127.0.0.1:3456
+            ```
+
+      - The Python app will automatically start `meridian` for you when `ANTHROPIC_BASE_URL` is set, but you still need the CLI installed via `npm install -g opencode-claude-max-proxy`.
+
+Other environment variables:
+
 | Variable | Required | Description |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | ✅ | [Anthropic Console](https://console.anthropic.com) |
 | `HF_TOKEN` | ✅ | [HuggingFace token](https://huggingface.co/settings/tokens) — also accept [model terms](https://huggingface.co/pyannote/speaker-diarization-3.1) |
 | `WHISPER_MODEL` | ➖ | `tiny` / `base` / `small` / `medium` / `large` (default: `medium`) |
 | `MEETING_LANGUAGE` | ➖ | `auto` / `en` / `zh` (default: `auto`) |
