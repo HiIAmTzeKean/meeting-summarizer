@@ -1,15 +1,10 @@
 """Speaker diarization using pyannote.audio."""
 
-import os
-
 import torch
-from dotenv import load_dotenv
 from pyannote.audio import Pipeline
 
-from meeting_summarizer.transcriber import Transcript
-
-
-load_dotenv()
+from meeting_summarizer.config import Settings
+from meeting_summarizer.models import Transcript
 
 
 class SpeakerDiarizer:
@@ -17,13 +12,11 @@ class SpeakerDiarizer:
 
     Requires a HuggingFace token with access to:
     https://huggingface.co/pyannote/speaker-diarization-3.1
-
-    Configure via .env:
-        HF_TOKEN=your_huggingface_token
     """
 
-    def __init__(self, hf_token: str | None = None) -> None:
-        hf_token = hf_token or os.getenv("HF_TOKEN")
+    def __init__(self, settings: Settings | None = None) -> None:
+        settings = settings or Settings()
+        hf_token = settings.hf_token
         if not hf_token:
             raise ValueError("HF_TOKEN is required for speaker diarization. Set it in .env")
 
@@ -32,7 +25,10 @@ class SpeakerDiarizer:
             token=hf_token,
         )
         if self.pipeline is None:
-            raise RuntimeError("Failed to load pyannote speaker diarization pipeline. Check your HF_TOKEN and model access.")
+            raise RuntimeError(
+                "Failed to load pyannote speaker diarization pipeline. "
+                "Check your HF_TOKEN and model access."
+            )
         if torch.cuda.is_available():
             self.pipeline.to(torch.device("cuda"))
 

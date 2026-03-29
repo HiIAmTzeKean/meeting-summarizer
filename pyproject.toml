@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-meeting-summarizer = "meeting_summarizer.main:cli"
+meeting-summarizer = "meeting_summarizer.cli:cli"
 download-model     = "meeting_summarizer.download_model:download"
 
 [project.urls]

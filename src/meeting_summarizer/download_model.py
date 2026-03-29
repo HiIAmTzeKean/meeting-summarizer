@@ -9,10 +9,8 @@ Run once before your first meeting:
 import os
 
 import whisper
-from dotenv import load_dotenv
 
-
-load_dotenv()
+from meeting_summarizer.config import Settings
 
 MODEL_INFO: dict[str, dict[str, str]] = {
     "tiny":   {"params": "39M", "size": "~75 MB"},
@@ -24,7 +22,7 @@ MODEL_INFO: dict[str, dict[str, str]] = {
 
 
 def download(model_size: str | None = None) -> None:
-    model_size = model_size or os.getenv("WHISPER_MODEL", "medium")
+    model_size = model_size or Settings().whisper_model
     info = MODEL_INFO.get(model_size, {})
 
     print(f"Downloading Whisper model: '{model_size}'")
@@ -38,7 +36,7 @@ def download(model_size: str | None = None) -> None:
 
     cache_dir = os.path.expanduser("~/.cache/whisper")
     if os.path.exists(cache_dir):
-        print("✓ Cached files:")
+        print("Cached files:")
         for fname in os.listdir(cache_dir):
             path = os.path.join(cache_dir, fname)
             size_mb = os.path.getsize(path) / (1024 * 1024)

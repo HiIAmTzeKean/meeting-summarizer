@@ -1,32 +1,13 @@
 """Audio transcription using OpenAI Whisper (runs fully locally)."""
 
-import os
 import subprocess
 import tempfile
-from dataclasses import dataclass
 from pathlib import Path
 
 import whisper
-from dotenv import load_dotenv
 
-
-load_dotenv()
-
-
-@dataclass
-class TranscriptSegment:
-    start: float
-    end: float
-    text: str
-    speaker: str | None = None
-
-
-@dataclass
-class Transcript:
-    segments: list[TranscriptSegment]
-    full_text: str
-    duration_seconds: float
-    language: str
+from meeting_summarizer.config import Settings
+from meeting_summarizer.models import Transcript, TranscriptSegment
 
 
 class AudioTranscriber:
@@ -34,29 +15,22 @@ class AudioTranscriber:
 
     Model is loaded from ~/.cache/whisper/ after the first download.
     Supports multilingual audio (English, Chinese, etc.).
-
-    Configure via .env:
-        WHISPER_MODEL=medium       # tiny | base | small | medium | large
-        MEETING_LANGUAGE=auto      # auto | en | zh | ...
     """
 
-    def __init__(self, model_size: str | None = None) -> None:
-        model_size = model_size or os.getenv("WHISPER_MODEL", "medium")
+    def __init__(self, settings: Settings | None = None) -> None:
+        settings = settings or Settings()
+        model_size = settings.whisper_model
         print(f"Loading Whisper model: {model_size}")
         self.model = whisper.load_model(model_size)
-        self.language = os.getenv("MEETING_LANGUAGE", "auto")
+        self.language = settings.meeting_language
 
     def transcribe_file(self, audio_path: str) -> Transcript:
-        """Transcribe an audio file and return structured segments.
-
-        Set MEETING_LANGUAGE=auto to let Whisper detect per segment,
-        which works best for mixed English/Chinese conversations.
-        """
-        kwargs: dict = dict(
-            verbose=False,
-            word_timestamps=True,
-            condition_on_previous_text=True,
-        )
+        """Transcribe an audio file and return structured segments."""
+        kwargs: dict = {
+            "verbose": False,
+            "word_timestamps": True,
+            "condition_on_previous_text": True,
+        }
 
         if self.language and self.language.lower() != "auto":
             lang = self.language.split(",")[0].strip()
