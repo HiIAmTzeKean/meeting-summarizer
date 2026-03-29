@@ -8,6 +8,7 @@ from pyannote.audio import Pipeline
 
 from meeting_summarizer.transcriber import Transcript
 
+
 load_dotenv()
 
 
@@ -28,14 +29,17 @@ class SpeakerDiarizer:
 
         self.pipeline = Pipeline.from_pretrained(
             "pyannote/speaker-diarization-3.1",
-            use_auth_token=hf_token,
+            token=hf_token,
         )
+        if self.pipeline is None:
+            raise RuntimeError("Failed to load pyannote speaker diarization pipeline. Check your HF_TOKEN and model access.")
         if torch.cuda.is_available():
             self.pipeline.to(torch.device("cuda"))
 
     def assign_speakers(self, audio_path: str, transcript: Transcript) -> Transcript:
         """Run diarization and assign speaker labels to each segment."""
-        diarization = self.pipeline(audio_path)
+        result = self.pipeline(audio_path)
+        diarization = result.speaker_diarization if hasattr(result, "speaker_diarization") else result
 
         for segment in transcript.segments:
             mid_time = (segment.start + segment.end) / 2

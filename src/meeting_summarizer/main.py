@@ -1,15 +1,67 @@
 """CLI entry point for the meeting summarizer pipeline."""
 
 import argparse
+import shutil
+import subprocess
+import time
 
 from dotenv import load_dotenv
 
-from meeting_summarizer.transcriber import AudioTranscriber
 from meeting_summarizer.diarizer import SpeakerDiarizer
-from meeting_summarizer.summary_engine import SummaryEngine
 from meeting_summarizer.distributor import OutputDistributor
+from meeting_summarizer.summary_engine import SummaryEngine
+from meeting_summarizer.transcriber import AudioTranscriber
+
 
 load_dotenv()
+
+MERIDIAN_STARTUP_TIMEOUT = 10  # seconds to wait for meridian to be ready
+
+
+def _start_meridian() -> subprocess.Popen | None:
+    """Launch the meridian proxy and wait for it to be ready. Returns None if not found."""
+    if not shutil.which("meridian"):
+        print("Warning: 'meridian' not found on PATH — skipping proxy launch")
+        return None
+
+    print("Starting meridian proxy…")
+    proc = subprocess.Popen(
+        ["meridian"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    # Give it a moment to start up
+    for _ in range(MERIDIAN_STARTUP_TIMEOUT * 10):
+        if proc.poll() is not None:
+            raise RuntimeError(f"meridian exited immediately with code {proc.returncode}")
+        time.sleep(0.1)
+        # Check if the proxy port is accepting connections
+        try:
+            import urllib.request
+            urllib.request.urlopen("http://127.0.0.1:3456", timeout=1)
+            break
+        except Exception:
+            continue
+    else:
+        proc.terminate()
+        raise RuntimeError(f"meridian did not become ready within {MERIDIAN_STARTUP_TIMEOUT}s")
+
+    print("meridian proxy is ready")
+    return proc
+
+
+def _stop_meridian(proc: subprocess.Popen | None) -> None:
+    """Terminate the meridian proxy if it's running."""
+    if proc is None or proc.poll() is not None:
+        return
+    print("Stopping meridian proxy…")
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
 
 
 def process_meeting(audio_path: str) -> None:
@@ -26,16 +78,20 @@ def process_meeting(audio_path: str) -> None:
     speakers = {s.speaker for s in transcript.segments if s.speaker}
     print(f"Identified {len(speakers)} speakers: {', '.join(speakers)}")
 
-    # 3. Generate structured summary
-    engine = SummaryEngine()
-    summary = engine.generate_summary(transcript)
-    print(f"Generated summary: {summary.title}")
+    # 3. Generate structured summary (launch meridian proxy first)
+    meridian_proc = _start_meridian()
+    try:
+        engine = SummaryEngine()
+        summary = engine.generate_summary(transcript)
+        print(f"Generated summary: {summary.title}")
 
-    # 4. Distribute
-    distributor = OutputDistributor()
-    distributor.to_slack(summary)
-    output_file = f"meeting_{summary.date}.json"
-    distributor.to_json(summary, output_file)
+        # 4. Distribute
+        distributor = OutputDistributor()
+        distributor.to_slack(summary)
+        output_file = f"meeting_{summary.date}.json"
+        distributor.to_json(summary, output_file)
+    finally:
+        _stop_meridian(meridian_proc)
 
     # 5. Print to console
     sep = "=" * 52

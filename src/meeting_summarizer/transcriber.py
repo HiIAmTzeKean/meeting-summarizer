@@ -9,6 +9,7 @@ from pathlib import Path
 import whisper
 from dotenv import load_dotenv
 
+
 load_dotenv()
 
 
