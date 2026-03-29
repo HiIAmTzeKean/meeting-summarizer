@@ -139,21 +139,34 @@ class SummaryEngine:
 
         user_message = USER_PROMPT_TEMPLATE.format(transcript=formatted)
 
-        response = self.client.messages.create(
+        with self.client.messages.stream(
             model="claude-sonnet-4-6",
             max_tokens=4096,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message}],
-        )
+        ) as stream:
+            response = stream.get_final_message()
 
-        # Normalize to raw text
-        raw_text = response if isinstance(response, str) else response.content[0].text
+        raw_text = next(block.text for block in response.content if block.type == "text")
+
+        # Strip markdown fences the model sometimes adds despite instructions
+        raw_text = raw_text.strip()
+        if raw_text.startswith("```"):
+            raw_text = raw_text.split("\n", 1)[1]  # drop opening ```json line
+        if raw_text.endswith("```"):
+            raw_text = raw_text[: -len("```")]
+        raw_text = raw_text.strip()
 
         try:
-            data = json.loads(raw_text)
-        except json.JSONDecodeError:
+            decoder = json.JSONDecoder()
+            data, _ = decoder.raw_decode(raw_text)
+        except json.JSONDecodeError as exc:
             raise ValueError(
-                f"Failed to parse JSON from Claude response: {raw_text[:200]}"
+                f"Failed to parse JSON from Claude response "
+                f"(stop_reason={response.stop_reason}, len={len(raw_text)}).\n"
+                f"Parse error: {exc}\n"
+                f"First 500 chars: {raw_text[:500]}\n"
+                f"Last 200 chars: {raw_text[-200:]}"
             ) from None
 
         duration_min = int(transcript.duration_seconds / 60)
